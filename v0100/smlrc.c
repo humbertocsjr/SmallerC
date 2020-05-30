@@ -74,8 +74,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ctype.h>
 #include <stdio.h>
 
+#ifndef I86
 #if UINT_MAX >= 0xFFFFFFFF
 #define CAN_COMPILE_32BIT
+#endif
 #endif
 
 #else // #ifndef __SMALLER_C__
@@ -2391,7 +2393,11 @@ void errorRedecl(char* s)
 #ifdef TR3200
 #include "cgtr3k2.c"
 #else
+#ifdef I86
+#include "cg8086.c"
+#else
 #include "cgx86.c"
+#endif // #ifdef I86
 #endif // #ifdef TR3200
 #endif // #ifdef MIPS
 

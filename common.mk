@@ -16,11 +16,18 @@ else
 	CFLAGS += -DHOST_LINUX
 endif
 
+I86CFLAGS = $(CFLAGS) -DI86
+
 bins = smlrc smlrl smlrcc smlrpp n2f
+binsi86 = smlrl smlrcc smlrpp n2f
 libs = lcdh.a lcdu.a lcds.a lcw.a lcl.a lcdp.a lcm.a
+libsi86 = lcds.a
 stub = dpstub.exe
 
 all: $(libs) $(stub)
+
+i86: $(binsi86) $(libsi86)
+	$(CC) $(I86CFLAGS) -o $@ $(srcdir)/smlrc.c
 
 $(libs): $(bins)
 $(stub): $(bins)
