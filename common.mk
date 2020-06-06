@@ -27,7 +27,7 @@ stub = dpstub.exe
 all: $(libs) $(stub)
 
 i86: $(binsi86) $(libsi86)
-	$(CC) $(I86CFLAGS) -o $@ $(srcdir)/smlrc.c
+	$(CC) $(I86CFLAGS) -o smlrci86 $(srcdir)/smlrc.c
 
 $(libs): $(bins)
 $(stub): $(bins)

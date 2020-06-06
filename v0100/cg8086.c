@@ -48,6 +48,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 char GlobalsTable[MAX_GLOBALS_TABLE_LEN];
 int GlobalsTableLen = 0;
+int NumLabelInternal = 0;
 
 STATIC
 void GenAddGlobal(char* s, int use)
@@ -186,6 +187,24 @@ void GenPrintNumLabel(int label)
 		printf2("L%d", label);
 	else
 		printf2("..@L%d", label);
+}
+
+STATIC
+void GenNumLabelInternal(int Label)
+{
+	if (UseLeadingUnderscores)
+		printf2("LI%d:\n", Label);
+	else
+		printf2("..@LI%d:\n", Label);
+}
+
+STATIC
+void GenPrintNumLabelInternal(int label)
+{
+	if (UseLeadingUnderscores)
+		printf2("LI%d", label);
+	else
+		printf2("..@LI%d", label);
 }
 
 STATIC
@@ -368,6 +387,7 @@ void GenPrintInstr(int instr, int val)
 		break;
 
 	case X86InstrSetCc:
+		
 		switch (val)
 		{
 		case '<':         p = "setl"; break;
@@ -433,6 +453,7 @@ void GenPrintInstr(int instr, int val)
 #define X86OpIndRegBExplicitWord        0x1C
 #define X86OpIndRegBExplicitHalfWord    0x1D
 #define X86OpIndRegBExplicitByteOrWord  0x1E
+#define X86OpNumLabelInternal           0x1F
 
 STATIC
 int GenSelectByteOrWord(int op, int opSz)
@@ -487,6 +508,7 @@ void GenPrintOperand(int op, int val)
 		case X86OpConst: printf2("%d", truncInt(val)); break;
 		case X86OpLabel: GenPrintLabel(IdentTable + val); break;
 		case X86OpNumLabel: GenPrintNumLabel(val); break;
+		case X86OpNumLabelInternal: GenPrintNumLabelInternal(val); break;
 		case X86OpIndLabel: printf2("["); GenPrintLabel(IdentTable + val); printf2("]"); break;
 		case X86OpIndLabelExplicitByte: printf2("byte ["); GenPrintLabel(IdentTable + val); printf2("]"); break;
 		case X86OpIndLabelExplicitWord: printf2("word ["); GenPrintLabel(IdentTable + val); printf2("]"); break;
@@ -733,35 +755,65 @@ STATIC
 void GenReadCRegIdent(int opSz, int label)
 {
 	if (opSz == -1)
-		GenPrintInstr2Operands(X86InstrMovSx, 0,
-													 X86OpRegCWord, 0,
+	{
+		GenPrintInstr1Operand(X86InstrPush, 0, X86OpRegAWord, 0);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegAByte, 0,
 													 X86OpIndLabelExplicitByte, label);
+		GenPrintInstrNoOperand(X86InstrCbw);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegCWord, 0,
+													 X86OpRegAWord, 0);
+		GenPrintInstr1Operand(X86InstrPop, 0, X86OpRegAWord, 0);
+	}
 	else if (opSz == 1)
-		GenPrintInstr2Operands(X86InstrMovZx, 0,
+	{
+		GenPrintInstr2Operands(X86InstrMov, 0,
 													 X86OpRegCWord, 0,
+													 X86OpConst, 0);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegCByte, 0,
 													 X86OpIndLabelExplicitByte, label);
-
+	}
 	else
+	{
 		GenPrintInstr2Operands(X86InstrMov, 0,
 													 X86OpRegCWord, 0,
 													 X86OpIndLabel, label);
+													
+	}
 }
 
 STATIC
 void GenReadCRegLocal(int opSz, int ofs)
 {
 	if (opSz == -1)
-		GenPrintInstr2Operands(X86InstrMovSx, 0,
-													 X86OpRegCWord, 0,
+	{
+		GenPrintInstr1Operand(X86InstrPush, 0, X86OpRegAWord, 0);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegAByte, 0,
 													 X86OpIndLocalExplicitByte, ofs);
+		GenPrintInstrNoOperand(X86InstrCbw);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegCWord, 0,
+													 X86OpRegAWord, 0);
+		GenPrintInstr1Operand(X86InstrPop, 0, X86OpRegAWord, 0);
+	}
 	else if (opSz == 1)
-		GenPrintInstr2Operands(X86InstrMovZx, 0,
+	{
+		GenPrintInstr2Operands(X86InstrMov, 0,
 													 X86OpRegCWord, 0,
+													 X86OpConst, 0);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegCByte, 0,
 													 X86OpIndLocalExplicitByte, ofs);
+	}
 	else
+	{
 		GenPrintInstr2Operands(X86InstrMov, 0,
 													 X86OpRegCWord, 0,
 													 X86OpIndLocal, ofs);
+	}
 }
 
 STATIC
@@ -772,18 +824,33 @@ void GenReadCRegIndirect(int opSz)
 												 X86OpRegAWord, 0);
 
 	if (opSz == -1)
-		GenPrintInstr2Operands(X86InstrMovSx, 0,
-													 X86OpRegCWord, 0,
+	{
+		GenPrintInstr1Operand(X86InstrPush, 0, X86OpRegAWord, 0);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegAByte, 0,
 													 X86OpIndRegBExplicitByte, 0);
+		GenPrintInstrNoOperand(X86InstrCbw);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegCWord, 0,
+													 X86OpRegAWord, 0);
+		GenPrintInstr1Operand(X86InstrPop, 0, X86OpRegAWord, 0);
+	}
 	else if (opSz == 1)
-		GenPrintInstr2Operands(X86InstrMovZx, 0,
+	{
+		GenPrintInstr2Operands(X86InstrMov, 0,
 													 X86OpRegCWord, 0,
+													 X86OpConst, 0);
+		GenPrintInstr2Operands(X86InstrMov, 0,
+													 X86OpRegCByte, 0,
 													 X86OpIndRegBExplicitByte, 0);
+	}
 
 	else
+	{
 		GenPrintInstr2Operands(X86InstrMov, 0,
 													 X86OpRegCWord, 0,
 													 X86OpIndRegB, 0);
+	}
 }
 
 STATIC
@@ -1445,6 +1512,7 @@ int GenGetBinaryOperatorInstr(int tok)
 STATIC
 void GenExpr1(void)
 {
+	int labelInternal = 0;
 	int s = sp - 1;
 	int i;
 
@@ -1985,8 +2053,16 @@ void GenExpr1(void)
 					case tokUGEQ:
 					case tokEQ:
 					case tokNEQ:
-						GenPrintInstr1Operand(X86InstrSetCc, tok,
-																	X86OpRegAByte, 0);
+						//GenPrintInstr1Operand(X86InstrSetCc, tok,
+						//											X86OpRegAByte, 0);
+						labelInternal = NumLabelInternal++;
+						GenPrintInstr1Operand(X86InstrJcc, tok, X86OpNumLabelInternal, labelInternal);
+						GenPrintInstr2Operands(X86InstrMov, 0, X86OpRegAByte, 0, X86OpConst, 0);
+						GenPrintInstr1Operand(X86InstrJmp, 0, X86OpNumLabelInternal, labelInternal + 1);
+						GenNumLabelInternal(labelInternal);
+						GenPrintInstr2Operands(X86InstrMov, 0, X86OpRegAByte, 0, X86OpConst, 1);
+						GenNumLabelInternal(labelInternal + 1);
+						NumLabelInternal++;
 						if (SizeOfWord == 2)
 							GenPrintInstrNoOperand(X86InstrCbw);
 
